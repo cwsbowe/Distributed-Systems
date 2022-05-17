@@ -55,14 +55,12 @@ public class Dstore {
             sto = false;
             temps = new ArrayList<String>();
             try {
-                serverSocket = new ServerSocket(port); //connects to client
-                serverSocket.setSoTimeout(timeout);
                 controllerSocket = new Socket(InetAddress.getLocalHost(), cport); //connects to controller
+                fromClient = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                toClient = new PrintWriter(socket.getOutputStream(), true);
                 while (true) {
-                    socket = serverSocket.accept(); //waits for client to send something
-                    fromClient = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                    toClient = new PrintWriter(socket.getOutputStream(), true);
                     if (sto) {
+                        sto = false;
                         file.createNewFile();
                         FileWriter w = new FileWriter(file);
                         String line;
@@ -72,10 +70,11 @@ public class Dstore {
                         w.close();
                         toCont = new PrintWriter(controllerSocket.getOutputStream(), true);
                         toCont.println("STORE_ACK " + temps.get(0));
+                        temps = new ArrayList<String>();
                     } else {
                         fstLine = fromClient.readLine().split(" ");
                         if (fstLine[0].equals("STORE")) {
-                            file = new File(fstLine[1]);
+                            file = new File(file_folder + fstLine[1]);
                             if (file.exists()) {
                                 toCont.println("ERROR_FILE_ALREADY_EXISTS"); //controller sends this to client
                             } else {
@@ -87,11 +86,23 @@ public class Dstore {
                         }
                     }
                 }
+            } catch (SocketTimeoutException e) {
+                halt();
             } catch (Exception e) {
                 System.out.println(e);
             }
         }
 
+        public void halt() {
+            try {
+                fromClient.close();
+                toClient.close();
+                socket.close();
+                controllerSocket.close();
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+        }
 
     }
 

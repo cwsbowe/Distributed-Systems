@@ -31,6 +31,8 @@ public class Controller {
             try {
                 in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 out = new PrintWriter(clientSocket.getOutputStream(), true);
+
+                
             } catch (Exception e) {
                 System.out.println(e);
             }
