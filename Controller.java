@@ -4,9 +4,39 @@ import java.util.ArrayList;
 
 
 public class Controller {
-    private Socket contSocket;
-    private InputStream in;
-    private OutputStream out;
+    private ServerSocket contSocket;
+
+    public void start(int cport, int R, int timeout, int rebalance_period) {
+        try {
+            contSocket = new ServerSocket(cport);
+            while (true) {
+                new EchoController(contSocket.accept()).start();
+            }
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }
+
+    private static class EchoController extends Thread {
+        private Socket clientSocket;
+        private BufferedReader in;
+        private PrintWriter out;
+
+        public EchoController(Socket socket) {
+            this.clientSocket = socket;
+        }
+        
+        public void run() {
+            try {
+                in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                out = new PrintWriter(clientSocket.getOutputStream(), true);
+                //todo timeout
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+        }
+
+    }
 }
 
 

@@ -56,6 +56,15 @@ public class Dstore {
         }
     }
 
+    public void stop() {
+        try {
+            fromClient.close();
+            toClient.close();
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+    }  
+
     public static void main(String[] args) {
         Dstore ds = new Dstore();
         try {
