@@ -9,6 +9,7 @@ public class Controller {
     public void start(int cport, int R, int timeout, int rebalance_period) {
         try {
             contSocket = new ServerSocket(cport);
+            contSocket.setSoTimeout(timeout);
             while (true) {
                 new EchoController(contSocket.accept()).start();
             }
@@ -30,12 +31,20 @@ public class Controller {
             try {
                 in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 out = new PrintWriter(clientSocket.getOutputStream(), true);
-                //todo timeout
             } catch (Exception e) {
                 System.out.println(e);
             }
         }
 
+    }
+
+    public static void main(String[] args) {
+        Controller cont = new Controller();
+        try {
+            cont.start(Integer.parseInt(args[0]), Integer.parseInt(args[1]), Integer.parseInt(args[2]), Integer.parseInt(args[3]));
+        } catch (Exception e) {
+            System.out.println(e); //either not enough args or args arent ints
+        }
     }
 }
 
