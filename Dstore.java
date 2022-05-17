@@ -30,6 +30,8 @@ public class Dstore {
         private ServerSocket serverSocket;
         private Socket socket;
         private Socket controllerSocket;
+        private InputStream instream;
+        private OutputStream outstream;
         private BufferedReader fromClient;
         private PrintWriter toClient;
         private BufferedReader fromCont;
@@ -53,21 +55,20 @@ public class Dstore {
 
         public void run() {
             sto = false;
-            temps = new ArrayList<String>();
+            temps = new ArrayList<>();
             try {
                 controllerSocket = new Socket(InetAddress.getLocalHost(), cport); //connects to controller
-                fromClient = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                toClient = new PrintWriter(socket.getOutputStream(), true);
+                instream = socket.getInputStream();
+                outstream = socket.getOutputStream();
+                fromClient = new BufferedReader(new InputStreamReader(instream));
+                toClient = new PrintWriter(outstream, true);
                 while (true) {
                     if (sto) {
                         sto = false;
                         file.createNewFile();
-                        FileWriter w = new FileWriter(file);
-                        String line;
-                        while ((line = fromClient.readLine()) != null) {
-                            w.write(line);
-                        }
-                        w.close();
+                        FileOutputStream fos = new FileOutputStream(file);
+                        fos.write(instream.readNBytes(Integer.parseInt(temps.get(1))));
+                        fos.close();
                         toCont = new PrintWriter(controllerSocket.getOutputStream(), true);
                         toCont.println("STORE_ACK " + temps.get(0));
                         temps = new ArrayList<String>();
