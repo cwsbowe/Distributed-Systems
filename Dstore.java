@@ -36,9 +36,8 @@ public class Dstore {
         private PrintWriter toClient;
         private BufferedReader fromCont;
         private PrintWriter toCont;
-        private String[] fstLine;
+        private String[] nextLine;
         private Boolean sto;
-        private ArrayList<String> temps;
         private File file;
         private int port;
         private int cport;
@@ -55,35 +54,36 @@ public class Dstore {
 
         public void run() {
             sto = false;
-            temps = new ArrayList<>();
             try {
                 controllerSocket = new Socket(InetAddress.getLocalHost(), cport); //connects to controller
                 instream = socket.getInputStream();
                 outstream = socket.getOutputStream();
                 fromClient = new BufferedReader(new InputStreamReader(instream));
                 toClient = new PrintWriter(outstream, true);
+                toCont = new PrintWriter(controllerSocket.getOutputStream(), true);
                 while (true) {
-                    if (sto) {
-                        sto = false;
+                    nextLine = fromClient.readLine().split(" ");
+                    if (nextLine[0].equals("STORE")) {
+                        file = new File(file_folder + nextLine[1]);
+                        if (file.exists()) {
+                            toCont.println("ERROR_FILE_ALREADY_EXISTS"); //controller sends this to client
+                        } else {
+                            toClient.println("ACK");
+                            sto = true;
+                        }
                         file.createNewFile();
                         FileOutputStream fos = new FileOutputStream(file);
-                        fos.write(instream.readNBytes(Integer.parseInt(temps.get(1))));
+                        fos.write(instream.readNBytes(Integer.parseInt(nextLine[2])));
                         fos.close();
-                        toCont = new PrintWriter(controllerSocket.getOutputStream(), true);
-                        toCont.println("STORE_ACK " + temps.get(0));
-                        temps = new ArrayList<String>();
-                    } else {
-                        fstLine = fromClient.readLine().split(" ");
-                        if (fstLine[0].equals("STORE")) {
-                            file = new File(file_folder + fstLine[1]);
-                            if (file.exists()) {
-                                toCont.println("ERROR_FILE_ALREADY_EXISTS"); //controller sends this to client
-                            } else {
-                                toClient.println("ACK");
-                                sto = true;
-                                temps.add(fstLine[1]);
-                                temps.add(fstLine[2]);
-                            }
+                        toCont.println("STORE_ACK " + nextLine[1]);
+                    } else if (nextLine[0].equals("LOAD_DATA")) {
+                        file = new File(file_folder + nextLine[1]);
+                        if (file.exists()) {
+                            FileInputStream fis = new FileInputStream(file);
+                            outstream.write(fis.read());
+                            fis.close();
+                        } else {
+                            halt();
                         }
                     }
                 }
@@ -99,7 +99,6 @@ public class Dstore {
                 fromClient.close();
                 toClient.close();
                 socket.close();
-                controllerSocket.close();
             } catch (Exception e) {
                 System.out.println(e);
             }

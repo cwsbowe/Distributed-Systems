@@ -24,9 +24,11 @@ public class Controller {
         private BufferedReader reader;
         private PrintWriter writer;
         private ArrayList<Integer> activePorts;
-        private HashMap<String, Integer> filePorts;
+        private HashMap<String, ArrayList<Integer>> filePorts;
+        private HashMap<String, Integer> fileSizes;
         private HashMap<String, Integer> storeCount;
         private String[] nextLine;
+        private int loadAttempt;
         private int cport;
         private int R;
         private int timeout;
@@ -48,6 +50,7 @@ public class Controller {
                 writer = new PrintWriter(clientSocket.getOutputStream(), true);
                 activePorts = new ArrayList<>();
                 filePorts = new HashMap<>();
+                fileSizes = new HashMap<>();
                 storeCount = new HashMap<>();
                 while (true) {
                     nextLine = reader.readLine().split(" ");
@@ -56,13 +59,12 @@ public class Controller {
                         writer.println("LIST");
                     } else if (nextLine[0].equals("STORE")) {
                         ArrayList<Integer> ports = new ArrayList<>();
-                        int p;
                         if (R < activePorts.size()) {
                             for (int i=0; i < R; i++) {
-                                p = activePorts.get(i);
-                                ports.add(p);
-                                filePorts.put(nextLine[1], p);
+                                ports.add(activePorts.get(i));
                             }
+                            filePorts.put(nextLine[1], ports);
+                            fileSizes.put(nextLine[1], Integer.parseInt(nextLine[2]));
                             storeCount.put(nextLine[1], 0);
                             writer.println("STORE_TO");
                             for (int i=0; i < ports.size(); i++) {
@@ -71,6 +73,20 @@ public class Controller {
                         } else {
                             writer.println("ERROR_NOT_ENOUGH_DSTORES");
                         }
+                    } else if (nextLine[0].equals("LOAD")) {
+                        writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(0) + " " + fileSizes.get(nextLine[1]));
+                        loadAttempt = 0;
+                    } else if (nextLine[0].equals("RELOAD")) {
+                        if (loadAttempt < R-1 && loadAttempt < activePorts.size()) {
+                            writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(loadAttempt) + " " + fileSizes.get(nextLine[1]));
+                            loadAttempt++;
+                        } else if (loadAttempt < R-1) {
+                            writer.println("ERROR_NOT_ENOUGH_DSTORES");
+                        } else {
+                            writer.println("ERROR_FILE_DOES_NOT_EXIST"); //idk when its supposed to do ERROR_LOAD
+                        }
+                    } else if (nextLine[0].equals("REMOVE")) {
+                        //
                     } else if (nextLine[0].equals("STORE_ACK")) {
                         if (storeCount.get(nextLine[1]) == R-1) {
                             writer.println("STORE_COMPLETE");
