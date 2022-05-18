@@ -2,6 +2,8 @@ import java.net.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 
 
 public class Controller {
@@ -30,6 +32,7 @@ public class Controller {
         private HashMap<String, Integer> removeCount;
         private ArrayList<Socket> storeSockets;
         private ArrayList<Socket> removeSockets;
+        private Timer timer;
         private String[] nextLine;
         private int loadAttempt;
         private int cport;
@@ -55,11 +58,18 @@ public class Controller {
                 filePorts = new HashMap<>();
                 fileSizes = new HashMap<>();
                 storeCount = new HashMap<>();
+                timer = new Timer();
+                timer.scheduleAtFixedRate(new TimerTask() {
+                    @Override
+                    public void run() {
+                        rebalance();
+                    }
+                }, rebalance_period*1000, rebalance_period*1000);
                 while (true) {
                     nextLine = reader.readLine().split(" ");
                     if (nextLine[0].equals("JOIN")) {
                         activePorts.add(Integer.parseInt(nextLine[1]));
-                        writer.println("LIST");
+                        rebalance();
                     } else if (nextLine[0].equals("STORE")) {
                         ArrayList<Integer> ports = new ArrayList<>();
                         if (R < activePorts.size()) {
@@ -69,14 +79,15 @@ public class Controller {
                             filePorts.put(nextLine[1], ports);
                             fileSizes.put(nextLine[1], Integer.parseInt(nextLine[2]));
                             storeCount.put(nextLine[1], 0);
-                            writer.println("STORE_TO");
+                            String s = "STORE_TO";
                             storeSockets = new ArrayList<>();
                             for (int i=0; i < ports.size(); i++) {
-                                writer.print(" " + ports.get(i));
+                                s = s + " " + ports.get(i);
                                 Socket storeSocket = new Socket();
                                 storeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), ports.get(i)), timeout);
                                 storeSockets.add(storeSocket);
                             }
+                            writer.println(s);
                         } else {
                             writer.println("ERROR_NOT_ENOUGH_DSTORES");
                         }
@@ -103,6 +114,12 @@ public class Controller {
                         }
                     } else if (nextLine[0].equals("REMOVE")) {
                         writer.println("ERROR_FILE_DOES_NOT_EXIST");
+                    } else if (nextLine[0].equals("LIST")) {
+                        String s = "LIST";
+                        for (String f : filePorts.keySet()) {
+                            s = s + " " + f;
+                        }
+                        writer.println(s);
                     } else if (nextLine[0].equals("STORE_ACK")) {
                         if (storeCount.get(nextLine[1]) == R-1) {
                             writer.println("STORE_COMPLETE");
@@ -123,7 +140,22 @@ public class Controller {
                 System.out.println(e);
             }
         }
-
+        
+        public void rebalance() {
+            HashMap<Integer, String[]> fileLists = new HashMap<>();
+            try {
+                for (int p : activePorts) {
+                    Socket socket = new Socket();
+                    socket.connect(new InetSocketAddress(InetAddress.getLocalHost(), p), timeout);
+                    new PrintWriter(clientSocket.getOutputStream(), true).println("LIST");
+                    fileLists.put(p, new BufferedReader(new InputStreamReader(socket.getInputStream())).readLine().split(" "));
+                    socket.close();
+                }
+                //todo sort fileLists
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+        }
     }
 
     public static void main(String[] args) {
