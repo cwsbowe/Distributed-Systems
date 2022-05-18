@@ -68,12 +68,12 @@ public class Dstore {
                             toCont.println("ERROR_FILE_ALREADY_EXISTS"); //controller sends this to client
                         } else {
                             toClient.println("ACK");
+                            file.createNewFile();
+                            FileOutputStream fos = new FileOutputStream(file);
+                            fos.write(instream.readNBytes(Integer.parseInt(nextLine[2])));
+                            fos.close();
+                            toCont.println("STORE_ACK " + nextLine[1]);
                         }
-                        file.createNewFile();
-                        FileOutputStream fos = new FileOutputStream(file);
-                        fos.write(instream.readNBytes(Integer.parseInt(nextLine[2])));
-                        fos.close();
-                        toCont.println("STORE_ACK " + nextLine[1]);
                     } else if (nextLine[0].equals("LOAD_DATA")) {
                         file = new File(file_folder + nextLine[1]);
                         if (file.exists()) {
@@ -90,6 +90,45 @@ public class Dstore {
                             toClient.println("REMOVE_ACK " + nextLine[1]);
                         } else {
                             toClient.println("ERROR_FILE_DOES_NOT_EXIST " + nextLine[1]);
+                        }
+                    } else if (nextLine[0].equals("REBALANCE")) {
+                        int disp = 0;
+                        for (int i = 0; i < Integer.parseInt(nextLine[1]); i++) {
+                            for (int j = 0; j < Integer.parseInt(nextLine[disp+3]); j++) {
+                                Socket s = new Socket();
+                                s.connect(new InetSocketAddress(InetAddress.getLocalHost(), Integer.parseInt(nextLine[disp+4])), timeout);
+                                OutputStream os = s.getOutputStream();
+                                PrintWriter pw = new PrintWriter(os, true);
+                                BufferedReader br = new BufferedReader(new InputStreamReader(s.getInputStream()));
+                                file = new File(file_folder + nextLine[disp+2]);
+                                if (file.exists()) {
+                                    pw.println("REBALANCE_STORE " + nextLine[disp+2] + " " + file.length());
+                                    if (br.readLine().equals("ACK")) {
+                                        FileInputStream fis = new FileInputStream(file);
+                                        os.write(fis.read());
+                                        fis.close();
+                                    }
+                                    file.delete();
+                                }
+                                disp++;
+                            }
+                        }
+                        for (int i = 0; i < Integer.parseInt(nextLine[disp+4]); i++) {
+                            file = new File(file_folder + nextLine[disp+5]);
+                            if (file.exists()) {
+                                file.delete();
+                                disp++;
+                            }
+                        }
+                        toClient.write("REBALANCE_COMPLETE");
+                    } else if (nextLine[0].equals("REBALANCE_STORE")) {
+                        file = new File(file_folder + nextLine[1]);
+                        if (!file.exists()) {
+                            toClient.println("ACK");
+                            file.createNewFile();
+                            FileOutputStream fos = new FileOutputStream(file);
+                            fos.write(instream.readNBytes(Integer.parseInt(nextLine[2])));
+                            fos.close();
                         }
                     }
                 }
