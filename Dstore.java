@@ -53,7 +53,8 @@ public class Dstore {
 
         public void run() {
             try {
-                controllerSocket = new Socket(InetAddress.getLocalHost(), cport); //connects to controller
+                controllerSocket = new Socket();
+                controllerSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), cport)); //connects to controller
                 instream = socket.getInputStream();
                 outstream = socket.getOutputStream();
                 fromClient = new BufferedReader(new InputStreamReader(instream));

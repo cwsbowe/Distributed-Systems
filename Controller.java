@@ -28,6 +28,8 @@ public class Controller {
         private HashMap<String, Integer> fileSizes;
         private HashMap<String, Integer> storeCount;
         private HashMap<String, Integer> removeCount;
+        private ArrayList<Socket> storeSockets;
+        private ArrayList<Socket> removeSockets;
         private String[] nextLine;
         private int loadAttempt;
         private int cport;
@@ -68,8 +70,12 @@ public class Controller {
                             fileSizes.put(nextLine[1], Integer.parseInt(nextLine[2]));
                             storeCount.put(nextLine[1], 0);
                             writer.println("STORE_TO");
+                            storeSockets = new ArrayList<>();
                             for (int i=0; i < ports.size(); i++) {
                                 writer.print(" " + ports.get(i));
+                                Socket storeSocket = new Socket();
+                                storeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), ports.get(i)), timeout);
+                                storeSockets.add(storeSocket);
                             }
                         } else {
                             writer.println("ERROR_NOT_ENOUGH_DSTORES");
@@ -88,9 +94,12 @@ public class Controller {
                         }
                     } else if (nextLine[0].equals("REMOVE") && filePorts.containsKey(nextLine[1])) {
                         removeCount.put(nextLine[1], 0);
+                        removeSockets = new ArrayList<>();
                         for (int n : filePorts.get(nextLine[1])) {
-                            Socket toDstoreSocket = new Socket(InetAddress.getLocalHost(), n);
-                            new PrintWriter (toDstoreSocket.getOutputStream(), true).println("REMOVE " + nextLine[1]);
+                            Socket removeSocket = new Socket();
+                            removeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), n), timeout);
+                            removeSockets.add(removeSocket);
+                            new PrintWriter (removeSockets.get(removeSockets.size()-1).getOutputStream(), true).println("REMOVE " + nextLine[1]);
                         }
                     } else if (nextLine[0].equals("REMOVE")) {
                         writer.println("ERROR_FILE_DOES_NOT_EXIST");
