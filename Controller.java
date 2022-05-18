@@ -13,7 +13,6 @@ public class Controller {
     public void start(int cport, int R, int timeout, int rebalance_period) {
         try {
             contSocket = new ServerSocket(cport);
-            contSocket.setSoTimeout(timeout);
             while (true) {
                 new EchoController(contSocket.accept(), cport, R, timeout, rebalance_period).start();
             }
@@ -71,6 +70,7 @@ public class Controller {
                 }, 1000, 1000);
                 int count = 0;
                 int countTo = 0;
+                index = "";
                 while (true) {
                     if (time <= 0) {
                         time = 0;
@@ -94,7 +94,9 @@ public class Controller {
                         }
                         if (nextLine[0].equals("JOIN")) {
                             activePorts.add(Integer.parseInt(nextLine[1]));
-                            rebalance();
+                            if (activePorts.size() >= R) {
+                                rebalance();
+                            }
                         } else if (nextLine[0].equals("STORE")) {
                             ArrayList<Integer> ports = new ArrayList<>();
                             if (R < activePorts.size()) {
@@ -145,8 +147,12 @@ public class Controller {
                                 writer.println("ERROR_NOT_ENOUGH_DSTORES");
                             }
                         } else if (nextLine[0].equals("LOAD")) {
-                            writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(0) + " " + fileSizes.get(nextLine[1]));
-                            loadAttempt = 0;
+                            if (filePorts.containsKey(nextLine[1])) {
+                                writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(0) + " " + fileSizes.get(nextLine[1]));
+                                loadAttempt = 0;
+                            } else {
+                                writer.println("ERROR_FILE_DOES_NOT_EXIST");
+                            }
                         } else if (nextLine[0].equals("RELOAD")) {
                             if (loadAttempt < R-1 && loadAttempt < activePorts.size()) {
                                 writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(loadAttempt) + " " + fileSizes.get(nextLine[1]));
@@ -342,14 +348,12 @@ public class Controller {
                     }
                 }
                 for (int p : activePorts) {
-                    String msg = "REBALANCE";
                     String msgToSend = "";
                     String msgToSendpt = "";
                     String msgToRemove = "";
                     int numFilesSend = 0;
                     int numFilesRemove = 0;
                     int numSend = 0;
-                    int numRemove = 0;
                     for (String s : toSend.keySet()) {
                         if (fileLists.get(p).contains(s)) {
                             numFilesSend++;

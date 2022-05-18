@@ -8,7 +8,6 @@ public class Dstore {
     public void start(int port, int cport, int timeout, String file_folder) {
         try {
             serverSocket = new ServerSocket(port);
-            serverSocket.setSoTimeout(timeout);
             while (true) {
                 new EchoDstore(serverSocket.accept(), port, cport, timeout, file_folder).start();
             }
