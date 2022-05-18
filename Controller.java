@@ -27,6 +27,7 @@ public class Controller {
         private HashMap<String, ArrayList<Integer>> filePorts;
         private HashMap<String, Integer> fileSizes;
         private HashMap<String, Integer> storeCount;
+        private HashMap<String, Integer> removeCount;
         private String[] nextLine;
         private int loadAttempt;
         private int cport;
@@ -85,14 +86,27 @@ public class Controller {
                         } else {
                             writer.println("ERROR_FILE_DOES_NOT_EXIST"); //idk when its supposed to do ERROR_LOAD
                         }
+                    } else if (nextLine[0].equals("REMOVE") && filePorts.containsKey(nextLine[1])) {
+                        removeCount.put(nextLine[1], 0);
+                        for (int n : filePorts.get(nextLine[1])) {
+                            Socket toDstoreSocket = new Socket(InetAddress.getLocalHost(), n);
+                            new PrintWriter (toDstoreSocket.getOutputStream(), true).println("REMOVE " + nextLine[1]);
+                        }
                     } else if (nextLine[0].equals("REMOVE")) {
-                        //
+                        writer.println("ERROR_FILE_DOES_NOT_EXIST");
                     } else if (nextLine[0].equals("STORE_ACK")) {
                         if (storeCount.get(nextLine[1]) == R-1) {
                             writer.println("STORE_COMPLETE");
                             storeCount.remove(nextLine[1]); //might be unnecessary
                         } else {
                             storeCount.put(nextLine[1], storeCount.get(nextLine[1]) + 1);
+                        }
+                    } else if (nextLine[0].equals("REMOVE_ACK")) {
+                        if (removeCount.get(nextLine[1]) == R-1) {
+                            writer.println("REMOVE_COMPLETE");
+                            removeCount.remove(nextLine[1]); //might be unnecessary
+                        } else {
+                            removeCount.put(nextLine[1], removeCount.get(nextLine[1]) + 1);
                         }
                     }
                 }

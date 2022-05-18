@@ -37,7 +37,6 @@ public class Dstore {
         private BufferedReader fromCont;
         private PrintWriter toCont;
         private String[] nextLine;
-        private Boolean sto;
         private File file;
         private int port;
         private int cport;
@@ -53,7 +52,6 @@ public class Dstore {
         }
 
         public void run() {
-            sto = false;
             try {
                 controllerSocket = new Socket(InetAddress.getLocalHost(), cport); //connects to controller
                 instream = socket.getInputStream();
@@ -69,7 +67,6 @@ public class Dstore {
                             toCont.println("ERROR_FILE_ALREADY_EXISTS"); //controller sends this to client
                         } else {
                             toClient.println("ACK");
-                            sto = true;
                         }
                         file.createNewFile();
                         FileOutputStream fos = new FileOutputStream(file);
@@ -84,6 +81,14 @@ public class Dstore {
                             fis.close();
                         } else {
                             halt();
+                        }
+                    } else if (nextLine[0].equals("REMOVE")) {
+                        file = new File(file_folder + nextLine[1]);
+                        if (file.exists()) {
+                            file.delete();
+                            toClient.println("REMOVE_ACK " + nextLine[1]);
+                        } else {
+                            toClient.println("ERROR_FILE_DOES_NOT_EXIST " + nextLine[1]);
                         }
                     }
                 }
