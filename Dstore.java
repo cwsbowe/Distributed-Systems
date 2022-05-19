@@ -4,12 +4,18 @@ import java.util.ArrayList;
 
 public class Dstore {
     private ServerSocket serverSocket;
+    private Socket controllerSocket;
+    private PrintWriter toCont;
 
     public void start(int port, int cport, int timeout, String file_folder) {
         try {
             serverSocket = new ServerSocket(port);
+            controllerSocket = new Socket();
+            controllerSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), cport)); //connects to controller
+            toCont = new PrintWriter(controllerSocket.getOutputStream(), true);
+            toCont.println("JOIN " + port);
             while (true) {
-                new EchoDstore(serverSocket.accept(), port, cport, timeout, file_folder).start();
+                new EchoDstore(serverSocket.accept(), port, cport, timeout, file_folder, controllerSocket, toCont).start();
             }
         } catch (Exception e) {
             System.out.println(e);
@@ -26,7 +32,6 @@ public class Dstore {
     // }
 
     private static class EchoDstore extends Thread{
-        private ServerSocket serverSocket;
         private Socket socket;
         private Socket controllerSocket;
         private InputStream instream;
@@ -42,37 +47,42 @@ public class Dstore {
         private int timeout;
         private String file_folder;
 
-        public EchoDstore(Socket socket, int port, int cport, int timeout, String file_folder) {
+        public EchoDstore(Socket socket, int port, int cport, int timeout, String file_folder, Socket controllerSocket, PrintWriter toCont) {
             this.socket = socket;
             this.port = port;
             this.cport = cport;
             this.timeout = timeout;
             this.file_folder = file_folder;
+            this.controllerSocket = controllerSocket;
+            this.toCont = toCont;
         }
 
         public void run() {
             try {
-                controllerSocket = new Socket();
-                controllerSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), cport)); //connects to controller
+                
                 instream = socket.getInputStream();
                 outstream = socket.getOutputStream();
                 fromClient = new BufferedReader(new InputStreamReader(instream));
                 toClient = new PrintWriter(outstream, true);
-                toCont = new PrintWriter(controllerSocket.getOutputStream(), true);
+                
+                String inLine;
                 while (true) {
-                    nextLine = fromClient.readLine().split(" ");
+                    while ((inLine = fromClient.readLine()) != null) {
+                    nextLine = inLine.split(" ");
                     if (nextLine[0].equals("STORE")) {
                         file = new File(file_folder + nextLine[1]);
-                        if (file.exists()) {
-                            toCont.println("ERROR_FILE_ALREADY_EXISTS"); //controller sends this to client
-                        } else {
+                        if (!file.exists()) {
                             toClient.println("ACK");
                             file.createNewFile();
                             FileOutputStream fos = new FileOutputStream(file);
                             fos.write(instream.readNBytes(Integer.parseInt(nextLine[2])));
                             fos.close();
                             toCont.println("STORE_ACK " + nextLine[1]);
+                            // toCont.println("ERROR_FILE_ALREADY_EXISTS"); //controller sends this to client
                         }
+                        // else {
+                            
+                        // }
                     } else if (nextLine[0].equals("LOAD_DATA")) {
                         file = new File(file_folder + nextLine[1]);
                         if (file.exists()) {
@@ -129,6 +139,7 @@ public class Dstore {
                             fos.write(instream.readNBytes(Integer.parseInt(nextLine[2])));
                             fos.close();
                         }
+                    }
                     }
                 }
             } catch (SocketTimeoutException e) {
