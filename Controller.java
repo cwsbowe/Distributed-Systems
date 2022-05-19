@@ -93,17 +93,16 @@ public class Controller {
                     }
                 }, 1000, 1000);
                 
-                while (true) {
-                    if (time <= 0) {
-                        time = 0;
-                        rebalance();
-                    } else {
+                
                         String inLine;
                         while ((inLine=reader.readLine()) != null) {
-                        nextLine = inLine.split(" ");
-                        // if (index.size() > 0) {
+                            nextLine = inLine.split(" ");
+                            // if (index.size() > 0) {
                             // if (index.get(index.size()-1).equals("store in progress") || index.get(index.size()-1).equals("remove in progress")) {
-                            if (index.equals("store in progress") || index.equals("remove in progress")) {
+                            if (time <= 0) {
+                                time = 0;
+                                rebalance();
+                            } else if (index.equals("store in progress") || index.equals("remove in progress")) {
                                 if (nextLine[0].equals("STORE_ACK")) {
                                     count++;
                                     // System.out.println(count);
@@ -111,6 +110,9 @@ public class Controller {
                                         // index.add("store complete");
                                         index = "store complete";
                                         writer.println("STORE_COMPLETE");
+                                        // for (Socket sock : storeSockets) {
+                                        //     sock.close();
+                                        // }
                                         count = 0;
                                     }
                                 } else if (nextLine[0].equals("REMOVE_ACK")) {
@@ -120,6 +122,9 @@ public class Controller {
                                         // index .add("remove complete");
                                         index = "remove complete";
                                         writer.println("REMOVE_COMPLETE");
+                                        // for (Socket sock : removeSockets) {
+                                        //     sock.close();
+                                        // }
                                         filePorts.remove(nextLine[1]);
                                         count = 0;
                                     }
@@ -143,33 +148,35 @@ public class Controller {
                             } else if (nextLine[0].equals("STORE")) {
                                 ArrayList<Integer> ports = new ArrayList<>();
                                 if (R <= activePorts.size() && !filePorts.containsKey(nextLine[1])) {
-                                    for (int i=0; i < R; i++) {
-                                        ports.add(activePorts.get(i));
-                                    }
-                                    filePorts.put(nextLine[1], ports);
-                                    fileSizes.put(nextLine[1], Integer.parseInt(nextLine[2]));
-                                    // storeCount.put(nextLine[1], 0);
-                                    String s = "STORE_TO";
-                                    storeSockets = new ArrayList<>();
-                                    try {
-                                        for (int i=0; i < ports.size(); i++) {
-                                            s = s + " " + ports.get(i);
-                                            Socket storeSocket = new Socket();
-                                            storeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), ports.get(i)), timeout);
-                                            storeSockets.add(storeSocket);
+                                    if (Integer.parseInt(nextLine[2]) > 0) {
+                                        for (int i=0; i < R; i++) {
+                                            ports.add(activePorts.get(i));
                                         }
-                                        writer.println(s);
-                                        // String conf;
-                                        count = 0;
-                                        // index.add("store in progress");
-                                        index = "store in progress";
-                                    } catch (Exception e) {//timeout
-                                        // index.remove(index.size()-1);
-                                        index = "";
-                                        count = 0;
-                                        countTo = 0;
-                                        filePorts.remove(nextLine[1]);
-                                        fileSizes.remove(nextLine[1]);
+                                        filePorts.put(nextLine[1], ports);
+                                        fileSizes.put(nextLine[1], Integer.parseInt(nextLine[2]));
+                                        // storeCount.put(nextLine[1], 0);
+                                        String s = "STORE_TO";
+                                        storeSockets = new ArrayList<>();
+                                        try {
+                                            for (int i=0; i < ports.size(); i++) {
+                                                s = s + " " + ports.get(i);
+                                                Socket storeSocket = new Socket();
+                                                storeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), ports.get(i)), timeout);
+                                                storeSockets.add(storeSocket);
+                                            }
+                                            writer.println(s);
+                                            // String conf;
+                                            count = 0;
+                                            // index.add("store in progress");
+                                            index = "store in progress";
+                                        } catch (Exception e) {//timeout
+                                            // index.remove(index.size()-1);
+                                            index = "";
+                                            count = 0;
+                                            countTo = 0;
+                                            filePorts.remove(nextLine[1]);
+                                            fileSizes.remove(nextLine[1]);
+                                        }
                                     }
                                 } else if (R <= activePorts.size()) {
                                     writer.println("ERROR_FILE_ALREADY_EXISTS");
@@ -270,8 +277,8 @@ public class Controller {
                             //     }
                             }
                         }
-                    }
-                }
+                    clientSocket.close();
+                
             } catch (Exception e) {
                 System.out.println(e);
             }
