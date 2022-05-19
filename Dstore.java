@@ -86,8 +86,9 @@ public class Dstore {
                     } else if (nextLine[0].equals("LOAD_DATA")) {
                         file = new File(file_folder + nextLine[1]);
                         if (file.exists()) {
+                            System.out.println("exists");
                             FileInputStream fis = new FileInputStream(file);
-                            outstream.write(fis.read());
+                            outstream.write(fis.readAllBytes());
                             fis.close();
                         } else {
                             halt();
@@ -96,9 +97,9 @@ public class Dstore {
                         file = new File(file_folder + nextLine[1]);
                         if (file.exists()) {
                             file.delete();
-                            toClient.println("REMOVE_ACK " + nextLine[1]);
+                            toCont.println("REMOVE_ACK " + nextLine[1]);
                         } else {
-                            toClient.println("ERROR_FILE_DOES_NOT_EXIST " + nextLine[1]);
+                            toCont.println("ERROR_FILE_DOES_NOT_EXIST " + nextLine[1]);
                         }
                     } else if (nextLine[0].equals("REBALANCE")) {
                         int disp = 0;

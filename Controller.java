@@ -45,8 +45,8 @@ public class Controller {
         private int time;
         private Timer timer;
         private String[] nextLine;
-        private int count;
-        private int countTo;
+        private static int count;
+        private static int countTo;
         private int loadAttempt;
         private int cport;
         private int R;
@@ -81,17 +81,18 @@ public class Controller {
                     filePorts = new HashMap<>();
                     fileSizes = new HashMap<>();
                     index = "";
-                    time = rebalance_period;
-                    timer = new Timer();
-                    timer.scheduleAtFixedRate(new TimerTask() {
-                        @Override
-                        public void run() {
-                            time--;
-                        }
-                    }, 1000, 1000);
                     count = 0;
                     countTo = 0;
                 }
+                time = rebalance_period;
+                timer = new Timer();
+                timer.scheduleAtFixedRate(new TimerTask() {
+                    @Override
+                    public void run() {
+                        time--;
+                    }
+                }, 1000, 1000);
+                
                 while (true) {
                     if (time <= 0) {
                         time = 0;
@@ -102,66 +103,136 @@ public class Controller {
                         nextLine = inLine.split(" ");
                         // if (index.size() > 0) {
                             // if (index.get(index.size()-1).equals("store in progress") || index.get(index.size()-1).equals("remove in progress")) {
-                            if (index.equals("store in progress")) {
+                            if (index.equals("store in progress") || index.equals("remove in progress")) {
                                 if (nextLine[0].equals("STORE_ACK")) {
                                     count++;
-                                    if (count == countTo) {
+                                    // System.out.println(count);
+                                    if (count == R) {
                                         // index.add("store complete");
                                         index = "store complete";
                                         writer.println("STORE_COMPLETE");
+                                        count = 0;
                                     }
                                 } else if (nextLine[0].equals("REMOVE_ACK")) {
                                     count++;
-                                    if (count == countTo) {
+                                    System.out.println(count);
+                                    if (count == R) {
                                         // index .add("remove complete");
                                         index = "remove complete";
                                         writer.println("REMOVE_COMPLETE");
+                                        filePorts.remove(nextLine[1]);
+                                        count = 0;
                                     }
-                                }
-                            }
-                        // }
-                        if (nextLine[0].equals("JOIN")) {
-                            activePorts.add(Integer.parseInt(nextLine[1]));
-                            // System.out.println("joins");
-                            if (activePorts.size() > R) {
-                                rebalance();
-                            }
-                        } else if (nextLine[0].equals("STORE")) {
-                            ArrayList<Integer> ports = new ArrayList<>();
-                            if (R <= activePorts.size() && !filePorts.containsKey(nextLine[1])) {
-                                for (int i=0; i < R; i++) {
-                                    ports.add(activePorts.get(i));
-                                }
-                                filePorts.put(nextLine[1], ports);
-                                fileSizes.put(nextLine[1], Integer.parseInt(nextLine[2]));
-                                // storeCount.put(nextLine[1], 0);
-                                String s = "STORE_TO";
-                                storeSockets = new ArrayList<>();
-                                try {
-                                    for (int i=0; i < ports.size(); i++) {
-                                        s = s + " " + ports.get(i);
-                                        Socket storeSocket = new Socket();
-                                        storeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), ports.get(i)), timeout);
-                                        storeSockets.add(storeSocket);
+                                } else if (nextLine[0].equals("STORE")) {
+                                    writer.println("ERROR_FILE_ALREADY_EXISTS");
+                                } else if (nextLine[0].equals("LIST")) {
+                                    String s = "LIST";
+                                    for (int i = 0; i < filePorts.keySet().size()-2; i++) {
+                                        s = s + " " + filePorts.keySet().toArray()[i];
                                     }
                                     writer.println(s);
-                                    // String conf;
-                                    countTo = storeSockets.size();
+                                } else {
+                                    writer.println("ERROR_FILE_DOES_NOT_EXIST");
+                                }
+                            } else if (nextLine[0].equals("JOIN")) {
+                                activePorts.add(Integer.parseInt(nextLine[1]));
+                                // System.out.println("joins");
+                                if (activePorts.size() > R) {
+                                    rebalance();
+                                }
+                            } else if (nextLine[0].equals("STORE")) {
+                                ArrayList<Integer> ports = new ArrayList<>();
+                                if (R <= activePorts.size() && !filePorts.containsKey(nextLine[1])) {
+                                    for (int i=0; i < R; i++) {
+                                        ports.add(activePorts.get(i));
+                                    }
+                                    filePorts.put(nextLine[1], ports);
+                                    fileSizes.put(nextLine[1], Integer.parseInt(nextLine[2]));
+                                    // storeCount.put(nextLine[1], 0);
+                                    String s = "STORE_TO";
+                                    storeSockets = new ArrayList<>();
+                                    try {
+                                        for (int i=0; i < ports.size(); i++) {
+                                            s = s + " " + ports.get(i);
+                                            Socket storeSocket = new Socket();
+                                            storeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), ports.get(i)), timeout);
+                                            storeSockets.add(storeSocket);
+                                        }
+                                        writer.println(s);
+                                        // String conf;
+                                        count = 0;
+                                        // index.add("store in progress");
+                                        index = "store in progress";
+                                    } catch (Exception e) {//timeout
+                                        // index.remove(index.size()-1);
+                                        index = "";
+                                        count = 0;
+                                        countTo = 0;
+                                        filePorts.remove(nextLine[1]);
+                                        fileSizes.remove(nextLine[1]);
+                                    }
+                                } else if (R <= activePorts.size()) {
+                                    writer.println("ERROR_FILE_ALREADY_EXISTS");
+                                    // while (!(conf=reader.readLine()).equals("STORE_ACK") || count < storeSockets.size() - 1) {
+                                    //     if (conf.equals("STORE_ACK")) {
+                                    //         count++;
+                                    //     } else if (conf.split(" ")[0].equals("STORE")) {
+                                    //         writer.println("ERROR_FILE_ALREADY_EXISTS");
+                                    //     } else if (conf.equals("LIST")) {
+                                    //         String temp = "LIST";
+                                    //         for (String f : filePorts.keySet()) {
+                                    //             temp = temp + " " + f;
+                                    //         }
+                                    //         writer.println(temp);
+                                    //     } else {
+                                    //         writer.println("ERROR_FILE_DOES_NOT_EXIST");
+                                    //     }
+                                    // }
+                                    // writer.println("STORE_COMPLETE");
+                                } else {
+                                    writer.println("ERROR_NOT_ENOUGH_DSTORES");
+                                    // System.out.println(activePorts.size());
+                                }
+                            } else if (nextLine[0].equals("LOAD")) {
+                                if (filePorts.containsKey(nextLine[1])) {
+                                    writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(0) + " " + fileSizes.get(nextLine[1]));
+                                    loadAttempt = 0;
+                                } else {
+                                    writer.println("ERROR_FILE_DOES_NOT_EXIST");
+                                }
+                            } else if (nextLine[0].equals("RELOAD")) {
+                                if (loadAttempt < R-1 && loadAttempt < activePorts.size()) {
+                                    writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(loadAttempt) + " " + fileSizes.get(nextLine[1]));
+                                    loadAttempt++;
+                                } else if (loadAttempt < R-1) {
+                                    writer.println("ERROR_NOT_ENOUGH_DSTORES");
+                                } else {
+                                    writer.println("ERROR_FILE_DOES_NOT_EXIST"); //idk when its supposed to do ERROR_LOAD
+                                }
+                            } else if (nextLine[0].equals("REMOVE") && filePorts.containsKey(nextLine[1])) {
+                                // removeCount.put(nextLine[1], 0);
+                                removeSockets = new ArrayList<>();
+                                try {
+                                    for (int n : filePorts.get(nextLine[1])) {
+                                        Socket removeSocket = new Socket();
+                                        removeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), n), timeout);
+                                        removeSockets.add(removeSocket);
+                                        new PrintWriter (removeSockets.get(removeSockets.size()-1).getOutputStream(), true).println("REMOVE " + nextLine[1]);
+                                    }
+                                    countTo = removeSockets.size();
                                     count = 0;
-                                    // index.add("store in progress");
-                                    index = "store in progress";
-                                } catch (Exception e) {//timeout
+                                    // index.add("remove in progress");
+                                    index = "remove in progress";
+                                } catch (Exception e) {
                                     // index.remove(index.size()-1);
                                     index = "";
-                                    count = 0;
                                     countTo = 0;
-                                    filePorts.remove(nextLine[1]);
-                                    fileSizes.remove(nextLine[1]);
+                                    count = 0;
                                 }
-                            } else if (R <= activePorts.size()) {
-                                writer.println("ERROR_FILE_ALREADY_EXISTS");
-                                // while (!(conf=reader.readLine()).equals("STORE_ACK") || count < storeSockets.size() - 1) {
-                                //     if (conf.equals("STORE_ACK")) {
+                                // String conf;
+                                // int count = 0;
+                                // while (!(conf=reader.readLine()).equals("REMOVE_ACK") || count < removeSockets.size()-1) {
+                                //     if (conf.equals("REMOVE_ACK")) {
                                 //         count++;
                                 //     } else if (conf.split(" ")[0].equals("STORE")) {
                                 //         writer.println("ERROR_FILE_ALREADY_EXISTS");
@@ -175,87 +246,29 @@ public class Controller {
                                 //         writer.println("ERROR_FILE_DOES_NOT_EXIST");
                                 //     }
                                 // }
-                                // writer.println("STORE_COMPLETE");
-                            } else {
-                                writer.println("ERROR_NOT_ENOUGH_DSTORES");
-                                // System.out.println(activePorts.size());
-                            }
-                        } else if (nextLine[0].equals("LOAD")) {
-                            if (filePorts.containsKey(nextLine[1])) {
-                                writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(0) + " " + fileSizes.get(nextLine[1]));
-                                loadAttempt = 0;
-                            } else {
+                            } else if (nextLine[0].equals("REMOVE")) {
                                 writer.println("ERROR_FILE_DOES_NOT_EXIST");
-                            }
-                        } else if (nextLine[0].equals("RELOAD")) {
-                            if (loadAttempt < R-1 && loadAttempt < activePorts.size()) {
-                                writer.println("LOAD_FROM " + filePorts.get(nextLine[1]).get(loadAttempt) + " " + fileSizes.get(nextLine[1]));
-                                loadAttempt++;
-                            } else if (loadAttempt < R-1) {
-                                writer.println("ERROR_NOT_ENOUGH_DSTORES");
-                            } else {
-                                writer.println("ERROR_FILE_DOES_NOT_EXIST"); //idk when its supposed to do ERROR_LOAD
-                            }
-                        } else if (nextLine[0].equals("REMOVE") && filePorts.containsKey(nextLine[1])) {
-                            // removeCount.put(nextLine[1], 0);
-                            removeSockets = new ArrayList<>();
-                            try {
-                            for (int n : filePorts.get(nextLine[1])) {
-                                Socket removeSocket = new Socket();
-                                removeSocket.connect(new InetSocketAddress(InetAddress.getLocalHost(), n), timeout);
-                                removeSockets.add(removeSocket);
-                                new PrintWriter (removeSockets.get(removeSockets.size()-1).getOutputStream(), true).println("REMOVE " + nextLine[1]);
-                            }
-                            countTo = removeSockets.size();
-                            count = 0;
-                            // index.add("remove in progress");
-                            index = "remove in progress";
-                            } catch (Exception e) {
-                                // index.remove(index.size()-1);
-                                index = "";
-                                countTo = 0;
-                                count = 0;
-                            }
-                            // String conf;
-                            // int count = 0;
-                            // while (!(conf=reader.readLine()).equals("REMOVE_ACK") || count < removeSockets.size()-1) {
-                            //     if (conf.equals("REMOVE_ACK")) {
-                            //         count++;
-                            //     } else if (conf.split(" ")[0].equals("STORE")) {
-                            //         writer.println("ERROR_FILE_ALREADY_EXISTS");
-                            //     } else if (conf.equals("LIST")) {
-                            //         String temp = "LIST";
-                            //         for (String f : filePorts.keySet()) {
-                            //             temp = temp + " " + f;
-                            //         }
-                            //         writer.println(temp);
+                            } else if (nextLine[0].equals("LIST")) {
+                                String s = "LIST";
+                                for (String f : filePorts.keySet()) {
+                                    s = s + " " + f;
+                                }
+                                writer.println(s);
+                            // } else if (nextLine[0].equals("STORE_ACK")) {
+                            //     if (storeCount.get(nextLine[1]) == R-1) {
+                            //         writer.println("STORE_COMPLETE");
+                            //         storeCount.remove(nextLine[1]); //might be unnecessary
                             //     } else {
-                            //         writer.println("ERROR_FILE_DOES_NOT_EXIST");
+                            //         storeCount.put(nextLine[1], storeCount.get(nextLine[1]) + 1);
                             //     }
-                            // }
-                        } else if (nextLine[0].equals("REMOVE")) {
-                            writer.println("ERROR_FILE_DOES_NOT_EXIST");
-                        } else if (nextLine[0].equals("LIST")) {
-                            String s = "LIST";
-                            for (String f : filePorts.keySet()) {
-                                s = s + " " + f;
+                            // } else if (nextLine[0].equals("REMOVE_ACK")) {
+                            //     if (removeCount.get(nextLine[1]) == R-1) {
+                            //         writer.println("REMOVE_COMPLETE");
+                            //         removeCount.remove(nextLine[1]); //might be unnecessary
+                            //     } else {
+                            //         removeCount.put(nextLine[1], removeCount.get(nextLine[1]) + 1);
+                            //     }
                             }
-                            writer.println(s);
-                        // } else if (nextLine[0].equals("STORE_ACK")) {
-                        //     if (storeCount.get(nextLine[1]) == R-1) {
-                        //         writer.println("STORE_COMPLETE");
-                        //         storeCount.remove(nextLine[1]); //might be unnecessary
-                        //     } else {
-                        //         storeCount.put(nextLine[1], storeCount.get(nextLine[1]) + 1);
-                        //     }
-                        // } else if (nextLine[0].equals("REMOVE_ACK")) {
-                        //     if (removeCount.get(nextLine[1]) == R-1) {
-                        //         writer.println("REMOVE_COMPLETE");
-                        //         removeCount.remove(nextLine[1]); //might be unnecessary
-                        //     } else {
-                        //         removeCount.put(nextLine[1], removeCount.get(nextLine[1]) + 1);
-                        //     }
-                        }
                         }
                     }
                 }
